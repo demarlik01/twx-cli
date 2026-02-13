@@ -2,22 +2,25 @@
 
 ## Overview
 
-twx-cli is a TypeScript CLI application that wraps the X (Twitter) REST API v2 for terminal usage. It follows a modular architecture with 3 source files.
+twx-cli is a TypeScript CLI application that wraps the X (Twitter) REST API v2 for terminal usage. It follows a modular architecture with domain-separated client modules.
 
 ## Project Structure
 
 ```
 twx-cli/
 ├── src/
-│   ├── cli.ts         # Entry point, command definitions (commander)
-│   ├── client.ts      # XClient — HTTP client & API methods
-│   └── config.ts      # Credential loading & validation
+│   ├── cli.ts              # Entry point, command definitions (commander)
+│   ├── config.ts            # Credential loading & validation
+│   └── client/
+│       ├── index.ts         # XClient base — OAuth, fetch, rate limiting, types
+│       ├── posts.ts         # Post CRUD, timeline, search
+│       ├── users.ts         # User lookup, follow/unfollow
+│       └── engagement.ts    # Like, unlike, retweet
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   └── ARCHITECTURE-ko.md
 ├── package.json
 ├── tsconfig.json
-├── .env.example
 └── README.md
 ```
 
@@ -31,24 +34,23 @@ twx-cli/
                     │  - Routing   │
                     └──────┬───────┘
                            │
-              ┌────────────┼────────────┐
-              ▼            │            ▼
-       ┌───────────┐      │     ┌───────────┐
-       │ config.ts │      │     │   chalk    │
-       │(credentials)     │     │ (output)   │
-       └───────────┘      │     └───────────┘
-                           ▼
-                   ┌──────────────┐
-                   │  client.ts   │
-                   │  (XClient)   │
-                   └──────┬───────┘
-                          │
-                   ┌──────┴──────┐
-                   ▼             ▼
-            ┌───────────┐ ┌───────────┐
-            │ oauth-1.0a│ │ X API v2  │
-            │ (signing) │ │  (REST)   │
-            └───────────┘ └───────────┘
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                  ▼
+  ┌────────────┐   ┌────────────┐    ┌──────────────┐
+  │ config.ts  │   │   chalk    │    │   client/    │
+  │(credentials)   │  (output)  │    ├──────────────┤
+  └────────────┘   └────────────┘    │  index.ts    │
+                                     │  posts.ts    │
+                                     │  users.ts    │
+                                     │ engagement.ts│
+                                     └──────┬───────┘
+                                            │
+                                     ┌──────┴──────┐
+                                     ▼             ▼
+                              ┌───────────┐ ┌───────────┐
+                              │ oauth-1.0a│ │ X API v2  │
+                              │ (signing) │ │  (REST)   │
+                              └───────────┘ └───────────┘
 ```
 
 ## Modules
@@ -57,16 +59,18 @@ twx-cli/
 
 Defines the CLI structure using commander.
 
-**Subcommands (10):**
+**Subcommands (12):**
 
 | Command | Description |
 |---------|-------------|
+| `init` | Interactive credential setup |
 | `post <text>` | Create a new post (tweet) |
+| `thread <tweets...>` | Create a thread from multiple posts |
 | `delete <id>` | Delete a post by ID |
 | `me` | Show authenticated user info |
 | `user <username>` | Get user info by username |
-| `timeline` | Show your recent posts |
-| `search <query>` | Search recent posts |
+| `timeline` | Show your recent posts (with pagination) |
+| `search <query>` | Search recent posts (with pagination) |
 | `like <tweet-id>` | Like a post |
 | `retweet <tweet-id>` | Retweet a post |
 | `follow <username>` | Follow a user |
@@ -74,46 +78,52 @@ Defines the CLI structure using commander.
 
 Each command handler:
 1. Initializes `XClient` via `getClient()`
-2. Calls the appropriate API method
-3. Formats and prints output with chalk
+2. Calls the appropriate module function (e.g. `posts.createPost(client, ...)`)
+3. Formats and prints output with chalk (or JSON with `--json`)
 
-### `client.ts` — X API Client
+### `client/index.ts` — Base Client
 
 `XClient` wraps Node.js native `fetch` with OAuth 1.0a signing.
 
-**Authentication:**
-- **OAuth 1.0a** (User Context) — for post, delete, like, follow, timeline
-- **Bearer Token** (App-only) — for search
+**Responsibilities:**
+- OAuth 1.0a request signing (HMAC-SHA1)
+- Rate limit detection and auto-retry (up to 2 retries)
+- JSON response parsing with error handling
+- Shared type definitions (`XPost`, `XUser`, `XApiResponse`, etc.)
 
-**Private methods:**
-| Method | Purpose |
-|--------|---------|
-| `request()` | OAuth 1.0a signed request |
-| `bearerRequest()` | Bearer token request |
+The `request()` method is public so domain modules can use it directly.
 
-**API methods (12):**
+### `client/posts.ts` — Post Operations
 
-| Method | HTTP | Endpoint |
-|--------|------|----------|
+| Function | HTTP | Endpoint |
+|----------|------|----------|
 | `createPost` | POST | `/2/tweets` |
 | `deletePost` | DELETE | `/2/tweets/{id}` |
-| `me` | GET | `/2/users/me` |
-| `getUser` | GET | `/2/users/by/username/{username}` |
 | `getUserPosts` | GET | `/2/users/{id}/tweets` |
 | `searchRecent` | GET | `/2/tweets/search/recent` |
-| `like` | POST | `/2/users/{id}/likes` |
-| `unlike` | DELETE | `/2/users/{id}/likes/{tweet_id}` |
-| `retweet` | POST | `/2/users/{id}/retweets` |
+
+### `client/users.ts` — User Operations
+
+| Function | HTTP | Endpoint |
+|----------|------|----------|
+| `me` | GET | `/2/users/me` |
+| `getUser` | GET | `/2/users/by/username/{username}` |
 | `follow` | POST | `/2/users/{id}/following` |
 | `unfollow` | DELETE | `/2/users/{id}/following/{target_id}` |
 
-### `config.ts` — Credential Management
+### `client/engagement.ts` — Engagement Operations
 
-Loads X API credentials from the environment.
+| Function | HTTP | Endpoint |
+|----------|------|----------|
+| `like` | POST | `/2/users/{id}/likes` |
+| `unlike` | DELETE | `/2/users/{id}/likes/{tweet_id}` |
+| `retweet` | POST | `/2/users/{id}/retweets` |
+
+### `config.ts` — Credential Management
 
 **Credential resolution priority:**
 1. Environment variables (takes precedence)
-2. `~/.config/twx-cli/.env`
+2. `~/.config/twx-cli/config.json`
 
 **Supported variable names:**
 
@@ -125,26 +135,13 @@ Loads X API credentials from the environment.
 | `X_ACCESS_TOKEN_SECRET` | `TWITTER_ACCESS_TOKEN_SECRET` |
 | `X_BEARER_TOKEN` | `TWITTER_BEARER_TOKEN` |
 
-Missing required credentials produce a clear error listing which vars are missing.
-
 ## Authentication Flow
 
-```
-┌─────────────────────────────────────────────────┐
-│                  OAuth 1.0a                     │
-│  (User Context — most endpoints)                │
-│                                                 │
-│  consumer_key + consumer_secret                 │
-│  + access_token + access_token_secret           │
-│  → HMAC-SHA1 signature in Authorization header  │
-└─────────────────────────────────────────────────┘
+All endpoints use **OAuth 1.0a** (User Context):
 
-┌─────────────────────────────────────────────────┐
-│              Bearer Token                       │
-│  (App-only — search endpoint)                   │
-│                                                 │
-│  Authorization: Bearer <token>                  │
-└─────────────────────────────────────────────────┘
+```
+consumer_key + consumer_secret + access_token + access_token_secret
+→ HMAC-SHA1 signature in Authorization header
 ```
 
 ## Dependencies
@@ -154,34 +151,19 @@ Missing required credentials produce a clear error listing which vars are missin
 | `commander` | CLI argument parsing |
 | `oauth-1.0a` | OAuth 1.0a request signing |
 | `chalk` | Terminal color output |
-| `dotenv` | Reserved (not used at runtime, config.ts handles loading) |
 
 **Node.js built-ins used:**
 - `crypto` — HMAC-SHA1 for OAuth signing
 - `fetch` — HTTP requests (Node >= 18)
 - `fs`, `path` — Config file loading
 
-## Error Handling
-
-- X API errors are caught and displayed with status code + detail message
-- Missing credentials produce a descriptive error listing missing vars
-- `--dry-run` flag on `post` command for safe testing
-
 ## Design Decisions
 
+- **Functional module pattern**: Domain functions take `XClient` as first parameter instead of class methods — easier to test and compose
+- **Domain separation**: `posts`, `users`, `engagement` — each module handles one concern
 - **Native fetch**: No HTTP library dependency — Node >= 18 has fetch built-in
-- **OAuth 1.0a over OAuth 2.0 PKCE**: Simpler for CLI tools — no browser redirect needed, keys are static
-- **TWITTER_* aliases**: Backward compatibility with existing env setups from other tools
-- **No pagination yet**: Keeping v0.1 simple — will add cursor-based pagination for timeline/search
-- **chalk over raw ANSI**: Cleaner code, auto-detects color support
-- **~/.config/ over project .env**: XDG-compliant, credentials don't leak into repos
-
-## Roadmap
-
-- [ ] Cursor-based pagination for timeline and search
-- [ ] Media upload (images, video)
-- [ ] Thread creation (post chains)
-- [ ] `twx config` command for interactive credential setup
-- [ ] Rate limit handling with auto-retry
-- [ ] JSON output mode (`--json`)
-- [ ] Streaming (filtered stream)
+- **OAuth 1.0a over OAuth 2.0 PKCE**: Simpler for CLI tools — no browser redirect needed
+- **TWITTER_* aliases**: Backward compatibility with existing env setups
+- **config.json in ~/.config/**: XDG-compliant, credentials don't leak into repos
+- **Rate limit auto-retry**: Up to 2 retries with exponential backoff from `x-rate-limit-reset` header
+- **Cursor pagination**: `--all` and `--max` flags for timeline and search
