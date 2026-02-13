@@ -3,7 +3,10 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { loadCredentials, saveConfig, getConfigPath } from "./config.js";
-import { XClient, type XPost, type XPaginatedResult } from "./client.js";
+import { XClient, type XPost, type XPaginatedResult } from "./client/index.js";
+import * as posts from "./client/posts.js";
+import * as users from "./client/users.js";
+import * as engagement from "./client/engagement.js";
 import { createInterface } from "readline";
 
 interface GlobalOptions {
@@ -169,7 +172,7 @@ program
       return;
     }
     const client = getClient();
-    const result = await client.createPost(text, {
+    const result = await posts.createPost(client, text, {
       replyTo: opts.replyTo,
       quoteTweetId: opts.quote,
     });
@@ -219,9 +222,10 @@ program
       if (!jsonOutput) {
         console.log(chalk.dim(`Posting ${index + 1}/${normalized.length}...`));
       }
-      const created = await client.createPost(
+      const created = await posts.createPost(
+        client,
         normalized[index],
-        previousId ? { replyTo: previousId } : undefined
+        previousId ? { replyTo: previousId } : undefined,
       );
 
       posted.push({
@@ -252,7 +256,7 @@ program
   .description("Delete a post by ID")
   .action(async (id: string) => {
     const client = getClient();
-    const deleted = await client.deletePost(id);
+    const deleted = await posts.deletePost(client, id);
     if (jsonOutput) {
       printJson({ id, deleted });
       return;
@@ -270,7 +274,7 @@ program
   .description("Show authenticated user info")
   .action(async () => {
     const client = getClient();
-    const user = await client.me();
+    const user = await users.me(client);
     if (jsonOutput) {
       printJson(user);
       return;
@@ -291,7 +295,7 @@ program
   .description("Get user info by username")
   .action(async (username: string) => {
     const client = getClient();
-    const user = await client.getUser(username.replace(/^@/, ""));
+    const user = await users.getUser(client, username.replace(/^@/, ""));
     if (jsonOutput) {
       printJson(user);
       return;
@@ -321,10 +325,10 @@ program
     const count = parsePositiveInt(opts.count, "--count");
     const max = opts.max ? parsePositiveInt(opts.max, "--max") : undefined;
     const client = getClient();
-    const me = await client.me();
+    const myUser = await users.me(client);
 
     if (!opts.all && !opts.max) {
-      const page = await client.getUserPosts(me.id, count);
+      const page = await posts.getUserPosts(client, myUser.id, count);
       if (jsonOutput) {
         printJson(page);
         return;
@@ -334,7 +338,7 @@ program
     }
 
     const result = await paginatePosts(
-      (pageCount, token) => client.getUserPosts(me.id, pageCount, token),
+      (pageCount, token) => posts.getUserPosts(client, myUser.id, pageCount, token),
       count,
       { all: opts.all, max }
     );
@@ -370,7 +374,7 @@ program
     const count = parsePositiveInt(opts.count, "--count");
 
     if (!opts.all && !opts.max) {
-      const page = await client.searchRecent(query, count);
+      const page = await posts.searchRecent(client, query, count);
       if (jsonOutput) {
         printJson(page);
         return;
@@ -381,7 +385,7 @@ program
 
     const max = opts.max ? parsePositiveInt(opts.max, "--max") : undefined;
     const result = await paginatePosts(
-      (pageCount, token) => client.searchRecent(query, pageCount, token),
+      (pageCount, token) => posts.searchRecent(client, query, pageCount, token),
       count,
       { all: opts.all, max }
     );
@@ -407,8 +411,8 @@ program
   .description("Like a post")
   .action(async (tweetId: string) => {
     const client = getClient();
-    const me = await client.me();
-    const liked = await client.like(me.id, tweetId);
+    const myUser = await users.me(client);
+    const liked = await engagement.like(client, myUser.id, tweetId);
     if (jsonOutput) {
       printJson({ tweet_id: tweetId, liked });
       return;
@@ -422,8 +426,8 @@ program
   .description("Retweet a post")
   .action(async (tweetId: string) => {
     const client = getClient();
-    const me = await client.me();
-    const ok = await client.retweet(me.id, tweetId);
+    const myUser = await users.me(client);
+    const ok = await engagement.retweet(client, myUser.id, tweetId);
     if (jsonOutput) {
       printJson({ tweet_id: tweetId, retweeted: ok });
       return;
@@ -437,9 +441,9 @@ program
   .description("Follow a user")
   .action(async (username: string) => {
     const client = getClient();
-    const me = await client.me();
-    const target = await client.getUser(username.replace(/^@/, ""));
-    const ok = await client.follow(me.id, target.id);
+    const myUser = await users.me(client);
+    const target = await users.getUser(client, username.replace(/^@/, ""));
+    const ok = await users.follow(client, myUser.id, target.id);
     if (jsonOutput) {
       printJson({ username: target.username, user_id: target.id, following: ok });
       return;
@@ -453,9 +457,9 @@ program
   .description("Unfollow a user")
   .action(async (username: string) => {
     const client = getClient();
-    const me = await client.me();
-    const target = await client.getUser(username.replace(/^@/, ""));
-    const ok = await client.unfollow(me.id, target.id);
+    const myUser = await users.me(client);
+    const target = await users.getUser(client, username.replace(/^@/, ""));
+    const ok = await users.unfollow(client, myUser.id, target.id);
     if (jsonOutput) {
       printJson({ username: target.username, user_id: target.id, unfollowed: ok });
       return;
