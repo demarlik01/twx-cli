@@ -14,6 +14,8 @@ npx twx-cli post "Hello from the terminal!"
 - **Users** — Lookup user profiles
 - **Like / Retweet / Follow** — Engage with posts and users
 - **Dry-run** — Preview posts before sending
+- **Threads** — Post multi-tweet threads in one command
+- **JSON output** — `--json` flag for scripting
 - **Zero config** — Just set 4 env vars and go
 
 ## Install
@@ -74,6 +76,16 @@ twx post "This is huge 👀" --quote 1234567890
 twx post "Testing..." --dry-run
 ```
 
+### Thread
+
+```bash
+# Post a thread (each argument = one tweet)
+twx thread "First tweet" "Second tweet" "Third tweet"
+
+# Dry run
+twx thread "Part 1" "Part 2" --dry-run
+```
+
 ### Timeline
 
 ```bash
@@ -82,6 +94,12 @@ twx timeline
 
 # Last 5 posts
 twx timeline -n 5
+
+# Fetch all with pagination
+twx timeline --all
+
+# Fetch up to 50
+twx timeline --max 50
 ```
 
 ### Search
@@ -117,6 +135,21 @@ twx-cli uses **OAuth 1.0a** (User Context) for most operations and optionally **
 Credentials are loaded in order:
 1. Environment variables (`X_API_KEY`, `X_API_SECRET`, etc.)
 2. `~/.config/twx-cli/config.json`
+
+## Project Structure
+
+```
+src/
+├── cli.ts              # Command definitions (commander)
+├── config.ts           # Credential loading & validation
+└── client/
+    ├── index.ts        # XClient base (OAuth, fetch, rate limiting)
+    ├── posts.ts        # Post CRUD, timeline, search
+    ├── users.ts        # User lookup, follow/unfollow
+    └── engagement.ts   # Like, unlike, retweet
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Requirements
 
