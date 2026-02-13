@@ -20,9 +20,13 @@ npx twx-cli post "Hello from the terminal!"
 
 ```bash
 npm install -g twx-cli
+# or
+pnpm add -g twx-cli
+# or
+bun add -g twx-cli
 ```
 
-Or use directly:
+Or use directly without installing:
 ```bash
 npx twx-cli post "Hello!"
 ```
