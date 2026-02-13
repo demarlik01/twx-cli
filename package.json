@@ -6,12 +6,24 @@
   "bin": {
     "twx": "./dist/cli.js"
   },
-  "main": "./dist/client.js",
-  "types": "./dist/client.d.ts",
+  "main": "./dist/client/index.js",
+  "types": "./dist/client/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/client.js",
-      "types": "./dist/client.d.ts"
+      "import": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    },
+    "./posts": {
+      "import": "./dist/client/posts.js",
+      "types": "./dist/client/posts.d.ts"
+    },
+    "./users": {
+      "import": "./dist/client/users.js",
+      "types": "./dist/client/users.d.ts"
+    },
+    "./engagement": {
+      "import": "./dist/client/engagement.js",
+      "types": "./dist/client/engagement.d.ts"
     }
   },
   "files": [
@@ -21,7 +33,7 @@
   ],
   "scripts": {
     "dev": "tsx src/cli.ts",
-    "build": "tsup src/cli.ts src/client.ts src/config.ts --format esm --dts --clean",
+    "build": "tsup src/cli.ts src/client/index.ts src/client/posts.ts src/client/users.ts src/client/engagement.ts src/config.ts --format esm --dts --clean",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },

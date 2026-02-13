@@ -66,7 +66,6 @@ export interface XClientOptions {
 export class XClient {
   private oauth: OAuth;
   private token: { key: string; secret: string };
-  private bearerToken?: string;
   private options: XClientOptions;
 
   constructor(credentials: XCredentials, options: XClientOptions = {}) {
@@ -78,7 +77,6 @@ export class XClient {
       },
     });
     this.token = { key: credentials.accessToken, secret: credentials.accessTokenSecret };
-    this.bearerToken = credentials.bearerToken;
     this.options = options;
   }
 
@@ -104,7 +102,7 @@ export class XClient {
   }
 
   /** Make an OAuth 1.0a signed request */
-  async request<T>(method: RequestMethod, url: string, body?: unknown, retryCount = 0): Promise<T> {
+  public async request<T>(method: RequestMethod, url: string, body?: unknown, retryCount = 0): Promise<T> {
     const requestData = { url, method };
     const authHeader = this.oauth.toHeader(this.oauth.authorize(requestData, this.token));
 

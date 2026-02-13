@@ -15,7 +15,7 @@ export async function unlike(client: XClient, userId: string, tweetId: string): 
     "DELETE",
     `${BASE_URL}/users/${userId}/likes/${tweetId}`,
   );
-  return !Boolean(res.data?.liked);
+  return res.data?.liked === false;
 }
 
 /** Retweet a post */

@@ -41,5 +41,5 @@ export async function unfollow(client: XClient, sourceUserId: string, targetUser
     "DELETE",
     `${BASE_URL}/users/${sourceUserId}/following/${targetUserId}`,
   );
-  return !Boolean(res.data?.following);
+  return res.data?.following === false;
 }
