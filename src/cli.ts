@@ -2,18 +2,59 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { loadCredentials } from "./config.js";
+import { loadCredentials, saveConfig, getConfigPath } from "./config.js";
 import { XClient } from "./client.js";
+import { createInterface } from "readline";
 
 function getClient(): XClient {
   const creds = loadCredentials();
   return new XClient(creds);
 }
 
+async function prompt(question: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
 const program = new Command()
   .name("twx")
   .description("A fast, lightweight CLI for the X (Twitter) API v2")
   .version("0.1.0");
+
+// ─── init ───
+program
+  .command("init")
+  .description("Set up API credentials interactively")
+  .action(async () => {
+    console.log(chalk.bold("twx-cli setup"));
+    console.log(chalk.dim("Get your keys at https://console.x.com\n"));
+
+    const api_key = await prompt("API Key: ");
+    const api_secret = await prompt("API Secret: ");
+    const access_token = await prompt("Access Token: ");
+    const access_token_secret = await prompt("Access Token Secret: ");
+    const bearer_token = await prompt("Bearer Token (optional, press Enter to skip): ");
+
+    if (!api_key || !api_secret || !access_token || !access_token_secret) {
+      console.error(chalk.red("✗"), "API Key, Secret, Access Token, and Access Token Secret are required.");
+      process.exit(1);
+    }
+
+    saveConfig({
+      api_key,
+      api_secret,
+      access_token,
+      access_token_secret,
+      ...(bearer_token ? { bearer_token } : {}),
+    });
+
+    console.log(chalk.green("✓"), `Saved to ${getConfigPath()}`);
+  });
 
 // ─── post ───
 program
