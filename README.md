@@ -1,5 +1,7 @@
 # twx-cli
 
+📐 [Architecture](./docs/ARCHITECTURE.md) | [아키텍처 (한국어)](./docs/ARCHITECTURE-ko.md)
+
 A fast, lightweight CLI for the X (Twitter) API v2.
 
 ```bash
@@ -149,8 +151,6 @@ src/
     ├── users.ts        # User lookup, follow/unfollow
     └── engagement.ts   # Like, unlike, retweet
 ```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Requirements
 
