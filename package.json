@@ -52,16 +52,16 @@
     "twitter-api",
     "oauth"
   ],
-  "author": "demarlik01-ai",
+  "author": "demarlik01",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/demarlik01-ai/twx-cli.git"
+    "url": "git+https://github.com/demarlik01/twx-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/demarlik01-ai/twx-cli/issues"
+    "url": "https://github.com/demarlik01/twx-cli/issues"
   },
-  "homepage": "https://github.com/demarlik01-ai/twx-cli#readme",
+  "homepage": "https://github.com/demarlik01/twx-cli#readme",
   "engines": {
     "node": ">=18"
   },
